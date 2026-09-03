@@ -37,6 +37,7 @@
 			],
 		},
 	],
+	/*
 	"workflows": [
 		{
 			"name": "mailflare-database-backup",
@@ -45,6 +46,7 @@
 			"schedules": ["0 2 * * *"],
 		},
 	],
+	*/
 	"ratelimits": [
 		{
 			"name": "LOGIN_RATE_LIMIT",

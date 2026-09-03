@@ -16,7 +16,7 @@ import {
 	MAILFLARE_FORWARDED_HEADER,
 } from "./src/lib/email/account-forwarding";
 export { RealtimeHub } from "./src/lib/realtime/hub";
-export { DatabaseBackupWorkflow } from "./src/lib/backups/workflow";
+// export { DatabaseBackupWorkflow } from "./src/lib/backups/workflow";
 
 export default {
 	async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext) {
