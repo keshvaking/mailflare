@@ -1,20 +1,34 @@
 import type { CfApiError, CfAuth } from "@/lib/cloudflare-api.types";
 
-export function getCloudflareAuth(env: CloudflareEnv): CfAuth {
-	const rawToken = env.CF_TOKEN?.trim().replace(/^["']|["']$/g, "");
-	const token = rawToken?.replace(/^Bearer\s+/i, "").trim();
-	const key = env.CF_API_KEY?.trim().replace(/^["']|["']$/g, "");
-	const email = env.CF_EMAIL?.trim().replace(/^["']|["']$/g, "");
-
-	if (key && email) {
-		return { kind: "global-key", email, key };
+function cleanToken(raw?: string): string | undefined {
+	if (!raw) return undefined;
+	const trimmed = raw.trim().replace(/^["']|["']$/g, "");
+	const tokenMatch = trimmed.match(/cf[ua]t_[A-Za-z0-9_-]+/i);
+	if (tokenMatch) {
+		return tokenMatch[0];
 	}
+	const stripped = trimmed.replace(/^Bearer\s+/i, "").replace(/\s+/g, "").trim();
+	return stripped || undefined;
+}
+
+export function getCloudflareAuth(env: CloudflareEnv): CfAuth {
+	const token = cleanToken(env.CF_TOKEN);
+	const apiKeyCandidate = cleanToken(env.CF_API_KEY);
+	const email = env.CF_EMAIL?.trim().replace(/^["']|["']$/g, "");
 
 	if (token) {
 		return { kind: "token", token };
 	}
 
-	if (key && !email) {
+	if (apiKeyCandidate && /^cf[ua]t_/i.test(apiKeyCandidate)) {
+		return { kind: "token", token: apiKeyCandidate };
+	}
+
+	if (apiKeyCandidate && email) {
+		return { kind: "global-key", email, key: apiKeyCandidate };
+	}
+
+	if (apiKeyCandidate && !email) {
 		throw new Error("CF_EMAIL is required when using CF_API_KEY");
 	}
 
@@ -38,7 +52,10 @@ export function formatCloudflareError(path: string, status: number, statusText: 
 	const details = errors
 		.map((error) => {
 			const code = error.code ? `code ${error.code}: ` : "";
-			return `${code}${error.message}`;
+			const chain = error.error_chain?.length
+				? ` [${error.error_chain.map((c) => `${c.code ? `code ${c.code}: ` : ""}${c.message}`).join("; ")}]`
+				: "";
+			return `${code}${error.message}${chain}`;
 		})
 		.join("; ");
 	const message = details || statusText || "Cloudflare API request failed";

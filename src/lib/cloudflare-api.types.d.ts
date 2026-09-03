@@ -11,6 +11,7 @@ export type CfApiError = {
 	message: string;
 	documentation_url?: string;
 	source?: unknown;
+	error_chain?: CfApiError[];
 };
 
 export type CfResponse<T> = {
