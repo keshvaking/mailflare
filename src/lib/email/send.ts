@@ -9,6 +9,7 @@ import { getAuthorizedSenderAddress } from "@/lib/email/sender";
 import { createAuditLog } from "@/lib/mailboxes/audit";
 import { storeMessageAttachments, validateAttachments } from "@/lib/email/attachments";
 import type { AttachmentContent } from "@/lib/email/attachment-types";
+import { sendViaResend } from "./resend";
 
 export type SendEmailInput = {
 	userId: string;
@@ -70,40 +71,56 @@ export async function sendEmail(env: CloudflareEnv, input: SendEmailInput): Prom
 	});
 
 	try {
-		const response = await env.EMAIL.send({
-			from: sender.fromAddr,
-			to: input.to,
-			subject: input.subject,
-			headers: input.headers,
-			html: input.html,
-			text: input.text,
-			attachments: attachments.map((attachment) =>
-				attachment.disposition === "inline" && attachment.contentId
-					? {
-							filename: attachment.filename,
-							type: attachment.type,
-							content: attachment.content,
-							disposition: "inline" as const,
-							contentId: attachment.contentId,
-						}
-					: {
-							filename: attachment.filename,
-							type: attachment.type,
-							content: attachment.content,
-							disposition: "attachment" as const,
-						},
-			),
-		});
+		let providerMessageId: string;
+		if (env.RESEND_API_KEY?.trim()) {
+			const resendResult = await sendViaResend({
+				apiKey: env.RESEND_API_KEY,
+				from: sender.fromAddr,
+				to: input.to,
+				subject: input.subject,
+				headers: input.headers,
+				html: input.html,
+				text: input.text,
+				attachments,
+			});
+			providerMessageId = resendResult.messageId;
+		} else {
+			const response = await env.EMAIL.send({
+				from: sender.fromAddr,
+				to: input.to,
+				subject: input.subject,
+				headers: input.headers,
+				html: input.html,
+				text: input.text,
+				attachments: attachments.map((attachment) =>
+					attachment.disposition === "inline" && attachment.contentId
+						? {
+								filename: attachment.filename,
+								type: attachment.type,
+								content: attachment.content,
+								disposition: "inline" as const,
+								contentId: attachment.contentId,
+							}
+						: {
+								filename: attachment.filename,
+								type: attachment.type,
+								content: attachment.content,
+								disposition: "attachment" as const,
+							},
+				),
+			});
+			providerMessageId = response.messageId;
+		}
 
 		await db
 			.update(messages)
-			.set({ status: "sent", providerMessageId: response.messageId })
+			.set({ status: "sent", providerMessageId })
 			.where(eq(messages.id, messageId));
 		await db.update(outboundJobs).set({ status: "sent", updatedAt: new Date() }).where(eq(outboundJobs.id, jobId));
 
 		await dispatchWebhooks(env, input.userId, "message.outbound", {
 			messageId,
-			providerMessageId: response.messageId,
+			providerMessageId,
 			to: input.to,
 		});
 		await createAuditLog(env, {

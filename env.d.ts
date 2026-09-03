@@ -21,5 +21,6 @@ interface CloudflareEnv {
 	TURNSTILE_SECRET_KEY?: string;
 	GITHUB_UPDATE_TOKEN?: string;
 	GITHUB_UPDATE_REF?: string;
-	GITHUB_UPDATE_REPO?: string
+	GITHUB_UPDATE_REPO?: string;
+	RESEND_API_KEY?: string;
 }
