@@ -4,6 +4,7 @@
 
 Mailflare is a self-hosted email inbox for custom domains, built on Cloudflare.
 
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/hieunc229/mailflare)
 
 ![Mailflare inbox](/screenshot.png)
