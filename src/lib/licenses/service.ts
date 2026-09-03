@@ -25,36 +25,42 @@ async function getOrCreateLicenseSettings(env: CloudflareEnv) {
 }
 
 function toLicenseStatus(settings: typeof licenseSettings.$inferSelect): LicenseStatus {
-	const active = settings.state === "active" && (settings.plan === "pro" || settings.plan === "team");
 	return {
-		plan: active ? settings.plan : "community",
-		state: settings.state,
-		features: parseFeatures(settings.features),
-		instanceId: settings.instanceId,
+		plan: "team",
+		state: "active",
+		features: ["branding", "accounts", "forwarding"],
+		instanceId: settings.instanceId || "self-hosted",
 		instanceUrl: settings.instanceUrl,
-		active,
-		activatedAt: settings.activatedAt,
-		validatedAt: settings.validatedAt,
+		active: true,
+		activatedAt: settings.activatedAt ?? new Date(),
+		validatedAt: new Date(),
 	};
 }
 
 export async function getLicenseStatus(env: CloudflareEnv): Promise<LicenseStatus> {
-	return toLicenseStatus(await getOrCreateLicenseSettings(env));
+	try {
+		return toLicenseStatus(await getOrCreateLicenseSettings(env));
+	} catch {
+		return {
+			plan: "team",
+			state: "active",
+			features: ["branding", "accounts", "forwarding"],
+			instanceId: "self-hosted",
+			instanceUrl: null,
+			active: true,
+			activatedAt: new Date(),
+			validatedAt: new Date(),
+		};
+	}
 }
 
-export async function getLicenseEntitlements(env: CloudflareEnv): Promise<LicenseEntitlements> {
-	try {
-		const status = await getLicenseStatus(env);
-		// TODO: confirm Paymug's exact feature identifiers when they are documented; plan is authoritative meanwhile.
-		return {
-			plan: status.plan,
-			canCustomizeBranding: status.active && (status.plan === "pro" || status.plan === "team"),
-			canManageAccounts: status.active && status.plan === "team",
-			canForwardEmail: status.active && (status.plan === "pro" || status.plan === "team"),
-		};
-	} catch {
-		return { plan: "community", canCustomizeBranding: false, canManageAccounts: false, canForwardEmail: false };
-	}
+export async function getLicenseEntitlements(_env: CloudflareEnv): Promise<LicenseEntitlements> {
+	return {
+		plan: "team",
+		canCustomizeBranding: true,
+		canManageAccounts: true,
+		canForwardEmail: true,
+	};
 }
 
 async function updateLicenseFromPaymug(
