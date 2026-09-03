@@ -1,9 +1,10 @@
 import type { CfApiError, CfAuth } from "@/lib/cloudflare-api.types";
 
 export function getCloudflareAuth(env: CloudflareEnv): CfAuth {
-	const token = env.CF_TOKEN?.trim();
-	const key = env.CF_API_KEY?.trim();
-	const email = env.CF_EMAIL?.trim();
+	const rawToken = env.CF_TOKEN?.trim().replace(/^["']|["']$/g, "");
+	const token = rawToken?.replace(/^Bearer\s+/i, "").trim();
+	const key = env.CF_API_KEY?.trim().replace(/^["']|["']$/g, "");
+	const email = env.CF_EMAIL?.trim().replace(/^["']|["']$/g, "");
 
 	if (key && email) {
 		return { kind: "global-key", email, key };
@@ -50,12 +51,14 @@ export function getCloudflareAuthHint(errors: CfApiError[]) {
 		(error) =>
 			error.code === 10000 ||
 			error.code === 9109 ||
+			error.code === 6003 ||
 			/auth/i.test(error.message) ||
-			/token/i.test(error.message),
+			/token/i.test(error.message) ||
+			/headers/i.test(error.message),
 	);
 	if (!hasAuthError) return "";
 
-	return " Verify CF_TOKEN with `curl https://api.cloudflare.com/client/v4/user/tokens/verify -H \"Authorization: Bearer <token>\"`. Use the token secret value without `Bearer`, or use CF_API_KEY plus CF_EMAIL for a Global API Key.";
+	return " Verify CF_TOKEN: ensure it contains only the token secret value (without 'Bearer ' prefix, Token ID, or quotes), or use CF_API_KEY plus CF_EMAIL for a Global API Key.";
 }
 
 export function getEmailWorkerName(): string {
